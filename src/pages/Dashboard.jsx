@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
-  const [studyItems, setStudyItems] = useState(() => {
-    const saved = localStorage.getItem('synq_data');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
+  const [studyItems, setStudyItems] = useState([]);
   const [currentFilter, setCurrentFilter] = useState('all');
   const [formVisible, setFormVisible] = useState(true);
   const [currentRating, setCurrentRating] = useState(3);
@@ -13,13 +10,89 @@ export default function Dashboard() {
 
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
-  const [range, setRange] = useState('');
+  const [scope, setScope] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
+  // 1. Fetch data from Supabase on load
   useEffect(() => {
-    localStorage.setItem('synq_data', JSON.stringify(studyItems));
-  }, [studyItems]);
+    fetchItems();
+  }, []);
 
+  const fetchItems = async () => {
+    const { data, error } = await supabase
+      .from('study_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) console.error("Error fetching:", error);
+    else setStudyItems(data);
+  };
+
+  // 2. Insert new data into Supabase
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsAdding(true);
+
+    const newItem = {
+      subject: subject.trim(),
+      topic: topic.trim(),
+      scope: scope.trim() || 'General Study',
+      confidence: currentRating,
+      completed: false
+    };
+
+    const { data, error } = await supabase
+      .from('study_items')
+      .insert([newItem])
+      .select();
+
+    if (error) {
+      console.error("Error inserting:", error);
+    } else {
+      setStudyItems([data[0], ...studyItems]);
+      setSubject('');
+      setTopic('');
+      setScope('');
+      setCurrentRating(3);
+    }
+    
+    setTimeout(() => setIsAdding(false), 1500);
+  };
+
+  // 3. Update completion status in Supabase
+  const toggleComplete = async (id, currentStatus) => {
+    if (!currentStatus) {
+      setPulsingId(id);
+      setTimeout(() => setPulsingId(null), 400);
+    }
+
+    // Optimistic UI update (feels instantly fast)
+    setStudyItems(items => items.map(item => 
+      item.id === id ? { ...item, completed: !currentStatus } : item
+    ));
+
+    // Real database update
+    const { error } = await supabase
+      .from('study_items')
+      .update({ completed: !currentStatus })
+      .eq('id', id);
+
+    if (error) console.error("Error updating:", error);
+  };
+
+  // 4. Delete from Supabase
+  const deleteItem = async (id) => {
+    setStudyItems(items => items.filter(i => i.id !== id));
+
+    const { error } = await supabase
+      .from('study_items')
+      .delete()
+      .eq('id', id);
+
+    if (error) console.error("Error deleting:", error);
+  };
+
+  // Derived Stats
   const total = studyItems.length;
   const doneCount = studyItems.filter(i => i.completed).length;
   const completionPct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
@@ -27,44 +100,6 @@ export default function Dashboard() {
   const lowCount = studyItems.filter(i => i.confidence <= 2).length;
   const medCount = studyItems.filter(i => i.confidence === 3 || i.confidence === 4).length;
   const highCount = studyItems.filter(i => i.confidence === 5).length;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newItem = {
-      id: Date.now(),
-      subject: subject.trim(),
-      topic: topic.trim(),
-      range: range.trim() || 'General Study',
-      confidence: currentRating,
-      completed: false
-    };
-
-    setStudyItems([newItem, ...studyItems]);
-    setSubject('');
-    setTopic('');
-    setRange('');
-    setCurrentRating(3);
-    
-    setIsAdding(true);
-    setTimeout(() => setIsAdding(false), 1500);
-  };
-
-  const toggleComplete = (id) => {
-    setStudyItems(items => items.map(item => {
-      if (item.id === id) {
-        if (!item.completed) {
-          setPulsingId(id);
-          setTimeout(() => setPulsingId(null), 400);
-        }
-        return { ...item, completed: !item.completed };
-      }
-      return item;
-    }));
-  };
-
-  const deleteItem = (id) => {
-    setStudyItems(items => items.filter(i => i.id !== id));
-  };
 
   const filteredItems = studyItems.filter(item => {
     if (currentFilter === 'all') return true;
@@ -148,7 +183,7 @@ export default function Dashboard() {
             <div className="space-y-sm">
               <label className="font-label-md text-on-surface-variant px-1">Scope / Range</label>
               <input 
-                type="text" value={range} onChange={(e) => setRange(e.target.value)}
+                type="text" value={scope} onChange={(e) => setScope(e.target.value)}
                 placeholder="e.g. Slides 12-45 or Ch. 4" 
                 className="w-full bg-surface-container-lowest border-outline-variant/20 text-on-surface rounded-lg px-md py-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
               />
@@ -170,8 +205,8 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              <button type="submit" className="bg-primary text-on-primary font-bold px-lg py-sm rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all hover:brightness-110">
-                {isAdding ? 'Added!' : 'Add to List'}
+              <button disabled={isAdding} type="submit" className="bg-primary text-on-primary font-bold px-lg py-sm rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50">
+                {isAdding ? 'Adding...' : 'Add to List'}
               </button>
             </div>
           </form>
@@ -232,7 +267,7 @@ export default function Dashboard() {
                 <h4 className={`font-bold text-on-surface truncate text-base ${item.completed ? 'line-through decoration-primary/50' : ''}`}>
                   {item.topic}
                 </h4>
-                <p className="text-on-surface-variant/70 text-xs">{item.range}</p>
+                <p className="text-on-surface-variant/70 text-xs">{item.scope}</p>
               </div>
               
               <div className="flex items-center gap-3">
@@ -240,7 +275,7 @@ export default function Dashboard() {
                   delete
                 </button>
                 <label className="relative flex items-center cursor-pointer group">
-                  <input type="checkbox" checked={item.completed} onChange={() => toggleComplete(item.id)} className="peer sr-only" />
+                  <input type="checkbox" checked={item.completed} onChange={() => toggleComplete(item.id, item.completed)} className="peer sr-only" />
                   <div className="w-7 h-7 rounded-lg border-2 border-outline-variant/30 peer-checked:border-primary peer-checked:bg-primary transition-all flex items-center justify-center">
                     <span className="material-symbols-outlined text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all font-bold text-sm">
                       check
