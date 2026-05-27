@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface-dim: #0b1326;
+  --color-surface-container-high: #222a3d;
+  --color-surface-container-lowest: #060e20;
+  --color-outline-variant: #3c4a42;
+  --color-primary: #4edea3;
+  --color-primary-container: #10b981;
+  --color-on-primary: #003824;
+  --color-on-primary-container: #00422b;
+  --color-secondary: #adc6ff;
+  --color-tertiary: #d0bcff;
+  --color-tertiary-container: #b090ff;
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+  --color-background: #0b1326;
+  --color-surface: #0b1326;
+  --color-on-surface: #dae2fd;
+  --color-on-surface-variant: #bbcabf;
+  --color-on-background: #dae2fd;
+  
+  --font-headline-md: Geist, sans-serif;
+  --font-label-sm: Geist, sans-serif;
+  --font-display: Geist, sans-serif;
+  --font-body-md: Inter, sans-serif;
+}
+
+/* Custom UI Utilities */
+@layer utilities {
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pb-safe-offset-4 { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* Base UI Styles */
+:root {
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
