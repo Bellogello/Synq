@@ -44,11 +44,12 @@ export default function Header() {
           account_circle
         </button>
 
-        {/* Dropdown Menu */}
+{/* Dropdown Menu */}
         <div 
-          className={`absolute right-0 mt-3 w-56 glass-card rounded-xl border border-outline-variant/30 py-2 shadow-2xl transition-all origin-top-right ${
+          className={`absolute right-0 mt-3 w-56 backdrop-blur-2xl rounded-xl border border-outline-variant/30 py-2 shadow-2xl z-50 transition-all origin-top-right ${
             isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
           }`}
+          style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 85%, transparent)' }}
         >
           <div className="px-4 py-3 border-b border-outline-variant/10 mb-1">
             <p className="text-xs text-on-surface-variant font-bold uppercase tracking-wider mb-1">Signed in as</p>
