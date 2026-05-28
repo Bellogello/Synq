@@ -2,49 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
-@theme {
-  --color-surface-dim: #0b1326;
-  --color-surface-container-high: #222a3d;
-  --color-surface-container-lowest: #060e20;
-  --color-outline-variant: #3c4a42;
-  --color-primary: #4edea3;
-  --color-primary-container: #10b981;
-  --color-on-primary: #003824;
-  --color-on-primary-container: #00422b;
-  --color-secondary: #adc6ff;
-  --color-tertiary: #d0bcff;
-  --color-tertiary-container: #b090ff;
-  --color-error: #ffb4ab;
-  --color-error-container: #93000a;
-  --color-background: #0b1326;
-  --color-surface: #0b1326;
-  --color-on-surface: #dae2fd;
-  --color-on-surface-variant: #bbcabf;
-  --color-on-background: #dae2fd;
-  
-  --font-headline-md: Geist, sans-serif;
-  --font-label-sm: Geist, sans-serif;
-  --font-display: Geist, sans-serif;
-  --font-body-md: Inter, sans-serif;
-}
+@layer base {
+  /* Default Synq Dark Mode */
+  :root, [data-theme="dark"] {
+    --bg: #0b111e;
+    --surface: #111827;
+    --surface-lowest: #0f1420;
+    --surface-low: #131b2c;
+    --surface-high: #1e293b;
+    --on-surface: #f8fafc;
+    --on-surface-variant: #94a3b8;
+    --outline-variant: #334155;
+    --primary: #14b8a6;
+    --on-primary: #042f2e;
+    --secondary: #818cf8;
+    --tertiary: #f472b6;
+    --error: #ef4444;
+  }
 
-/* Custom UI Utilities */
-@layer utilities {
-  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-  .pb-safe-offset-4 { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
-  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-}
+  /* Theme 1: Midnight Rose (Light Pink BG, Navy Primary, Rosewood Secondary) */
+  [data-theme="midnight-rose"] {
+    --bg: #F8E9EB;
+    --surface: #F2C4CD;
+    --surface-lowest: #FFF5F7;
+    --surface-low: #FCEFF1;
+    --surface-high: #E8B4BE;
+    --on-surface: #051F45;
+    --on-surface-variant: #4A5D7A;
+    --outline-variant: #D9A9B4;
+    --primary: #051F45;
+    --on-primary: #ffffff;
+    --secondary: #8E3B46;
+    --tertiary: #D4AFB9;
+    --error: #dc2626;
+  }
 
-/* Base UI Styles */
-:root {
-  --glass-border: rgba(255, 255, 255, 0.1);
-}
+  /* Theme 2: Slate Peach (Dark Slate BG, Peach Primary, Terracotta Secondary) */
+  [data-theme="slate-peach"] {
+    --bg: #1A2226;
+    --surface: #242F35;
+    --surface-lowest: #141A1D;
+    --surface-low: #1E272B;
+    --surface-high: #314047;
+    --on-surface: #ffffff;
+    --on-surface-variant: #9BB0B8;
+    --outline-variant: #3D4E56;
+    --primary: #FFCDC1;
+    --on-primary: #3D1C13;
+    --secondary: #E07A5F;
+    --tertiary: #7D99A3;
+    --error: #ef4444;
+  }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  /* Theme 3: Crimson Night (Deep Plum BG, Crimson Primary, Gold Secondary) */
+  [data-theme="crimson-night"] {
+    --bg: #120812;
+    --surface: #1C0D1C;
+    --surface-lowest: #0A040A;
+    --surface-low: #140914;
+    --surface-high: #2E152E;
+    --on-surface: #faeafa;
+    --on-surface-variant: #b08bb0;
+    --outline-variant: #452245;
+    --primary: #C30F45;
+    --on-primary: #ffffff;
+    --secondary: #F4A261;
+    --tertiary: #E76F51;
+    --error: #ff4d4d;
+  }
+
+  /* Theme 4: Mint Marine (Deep Marine BG, Mint Primary, Bright Yellow Secondary) */
+  [data-theme="mint-marine"] {
+    --bg: #001A33;
+    --surface: #002B54;
+    --surface-lowest: #001122;
+    --surface-low: #002040;
+    --surface-high: #003B75;
+    --on-surface: #F0F8FF;
+    --on-surface-variant: #80BFFF;
+    --outline-variant: #004C99;
+    --primary: #DCF4A2;
+    --on-primary: #003300;
+    --secondary: #FFB703;
+    --tertiary: #00A896;
+    --error: #ef4444;
+  }
 }

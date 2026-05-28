@@ -38,7 +38,9 @@ export default function Dashboard() {
       topic: topic.trim(),
       scope: scope.trim() || 'General Study',
       confidence: currentRating,
-      completed: false
+      completed: false,
+      // Re-added the user_id so Supabase RLS accepts the entry!
+      user_id: (await supabase.auth.getUser()).data.user.id
     };
 
     const { data, error } = await supabase
@@ -113,7 +115,7 @@ export default function Dashboard() {
   return (
     <>
       {/* Session Overview */}
-      <section className="glass-card rounded-xl p-md space-y-md sticky top-20 z-40 transition-shadow duration-300">
+      <section className="glass-card rounded-xl p-4 space-y-4 sticky top-20 z-40 transition-shadow duration-300">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-on-surface-variant font-label-sm uppercase tracking-wider mb-0.5">Session Overview</p>
@@ -147,7 +149,7 @@ export default function Dashboard() {
       </section>
 
       {/* New Objective Form */}
-      <section className="space-y-md">
+      <section className="space-y-4 mt-6">
         <div className="flex items-center justify-between">
           <h3 className="font-headline-md text-[18px] text-on-surface">New Objective</h3>
           <button 
@@ -163,35 +165,36 @@ export default function Dashboard() {
           className="overflow-hidden transition-all duration-300"
           style={{ maxHeight: formVisible ? '500px' : '0px', opacity: formVisible ? '1' : '0' }}
         >
-          <form onSubmit={handleSubmit} className="glass-card rounded-xl p-md space-y-md border-primary/20">
-            <div className="space-y-sm">
-              <label className="font-label-md text-on-surface-variant px-1">Subject & Topic</label>
-              <div className="grid grid-cols-2 gap-sm">
+          <form onSubmit={handleSubmit} className="glass-card rounded-xl p-4 space-y-4 border-primary/20">
+            <div className="space-y-1">
+              <label className="font-label-md text-on-surface-variant px-1 text-sm">Subject & Topic</label>
+              {/* FIX 1: Flexbox with gap and min-w-0 prevents the inputs from squishing */}
+              <div className="flex gap-3">
                 <input 
                   type="text" required value={subject} onChange={(e) => setSubject(e.target.value)}
                   placeholder="Calculus" 
-                  className="bg-surface-container-lowest border-outline-variant/20 text-on-surface rounded-lg px-md py-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
+                  className="flex-1 min-w-0 bg-surface-container-lowest border border-outline-variant/20 text-on-surface rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
                 />
                 <input 
                   type="text" required value={topic} onChange={(e) => setTopic(e.target.value)}
                   placeholder="Integration" 
-                  className="bg-surface-container-lowest border-outline-variant/20 text-on-surface rounded-lg px-md py-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
+                  className="flex-1 min-w-0 bg-surface-container-lowest border border-outline-variant/20 text-on-surface rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
                 />
               </div>
             </div>
             
-            <div className="space-y-sm">
-              <label className="font-label-md text-on-surface-variant px-1">Scope / Range</label>
+            <div className="space-y-1">
+              <label className="font-label-md text-on-surface-variant px-1 text-sm">Scope / Range</label>
               <input 
                 type="text" value={scope} onChange={(e) => setScope(e.target.value)}
                 placeholder="e.g. Slides 12-45 or Ch. 4" 
-                className="w-full bg-surface-container-lowest border-outline-variant/20 text-on-surface rounded-lg px-md py-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
+                className="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" 
               />
             </div>
             
-            <div className="flex items-center justify-between pt-sm">
-              <div className="space-y-xs">
-                <label className="font-label-md text-on-surface-variant block">Confidence</label>
+            <div className="flex items-center justify-between pt-2">
+              <div className="space-y-1">
+                <label className="font-label-md text-on-surface-variant block text-sm">Confidence</label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <span 
@@ -205,7 +208,8 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              <button disabled={isAdding} type="submit" className="bg-primary text-on-primary font-bold px-lg py-sm rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50">
+              {/* FIX 2: whitespace-nowrap and flex-shrink-0 ensure button text never wraps */}
+              <button disabled={isAdding} type="submit" className="whitespace-nowrap flex-shrink-0 bg-primary text-on-primary font-bold px-5 py-2 rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50 text-sm">
                 {isAdding ? 'Adding...' : 'Add to List'}
               </button>
             </div>
@@ -213,8 +217,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Filter Chips */}
-      <section className="flex gap-sm overflow-x-auto pb-sm no-scrollbar -mx-md px-md">
+      {/* FIX 3: Filter Chips - Added flex-shrink-0 and overflow styling */}
+      <section className="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 mt-6">
         {[
           { id: 'all', label: 'All Items' },
           { id: 'low', label: 'Low Conf.' },
@@ -224,7 +228,7 @@ export default function Dashboard() {
         ].map(filter => (
           <button 
             key={filter.id} onClick={() => setCurrentFilter(filter.id)}
-            className={`whitespace-nowrap px-lg py-2 rounded-full font-label-sm transition-all ${currentFilter === filter.id ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/20'}`}
+            className={`whitespace-nowrap flex-shrink-0 px-4 py-1.5 rounded-full font-label-sm text-xs transition-all ${currentFilter === filter.id ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/30 hover:border-outline-variant'}`}
           >
             {filter.label}
           </button>
@@ -232,9 +236,9 @@ export default function Dashboard() {
       </section>
 
       {/* Study List */}
-      <section className="space-y-md min-h-[200px]">
+      <section className="space-y-4 min-h-[200px] mt-4">
         {filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-xl space-y-md animate-pulse">
+          <div className="flex flex-col items-center justify-center text-center py-12 space-y-4 animate-pulse">
             <span className="material-symbols-outlined text-[64px] text-surface-variant/40">auto_stories</span>
             <div>
               <p className="font-headline-md text-on-surface/60">Your queue is empty</p>
@@ -245,7 +249,7 @@ export default function Dashboard() {
           filteredItems.map(item => (
             <div 
               key={item.id} 
-              className={`study-item-enter glass-card rounded-xl p-md flex items-center gap-md transition-all duration-300 relative overflow-hidden ${item.completed ? 'opacity-50 grayscale-[0.3]' : ''} ${pulsingId === item.id ? 'complete-pulse' : ''}`}
+              className={`study-item-enter glass-card rounded-xl p-4 flex items-center gap-4 transition-all duration-300 relative overflow-hidden ${item.completed ? 'opacity-50 grayscale-[0.3]' : ''} ${pulsingId === item.id ? 'complete-pulse' : ''}`}
             >
               <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -267,14 +271,14 @@ export default function Dashboard() {
                 <h4 className={`font-bold text-on-surface truncate text-base ${item.completed ? 'line-through decoration-primary/50' : ''}`}>
                   {item.topic}
                 </h4>
-                <p className="text-on-surface-variant/70 text-xs">{item.scope}</p>
+                <p className="text-on-surface-variant/70 text-xs truncate">{item.scope}</p>
               </div>
               
               <div className="flex items-center gap-3">
-                <button onClick={() => deleteItem(item.id)} className="material-symbols-outlined text-on-surface-variant/40 hover:text-error transition-all active:scale-90">
+                <button onClick={() => deleteItem(item.id)} className="material-symbols-outlined text-on-surface-variant/40 hover:text-error transition-all active:scale-90 flex-shrink-0">
                   delete
                 </button>
-                <label className="relative flex items-center cursor-pointer group">
+                <label className="relative flex items-center cursor-pointer group flex-shrink-0">
                   <input type="checkbox" checked={item.completed} onChange={() => toggleComplete(item.id, item.completed)} className="peer sr-only" />
                   <div className="w-7 h-7 rounded-lg border-2 border-outline-variant/30 peer-checked:border-primary peer-checked:bg-primary transition-all flex items-center justify-center">
                     <span className="material-symbols-outlined text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all font-bold text-sm">

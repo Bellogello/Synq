@@ -13,13 +13,12 @@ import Auth from './pages/Auth';
 export default function App() {
   const [session, setSession] = useState(null);
 
+  // 1. SUPABASE AUTH HOOK
   useEffect(() => {
-    // Check active session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
-    // Listen for login/logout events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -27,7 +26,13 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // THE BOUNCER: If the user is NOT logged in, ONLY show the Auth screen
+  // 2. THEME HOOK (Moved up here!)
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('synq-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  // 3. THE BOUNCER (Hooks are NOT allowed below this point!)
   if (!session) {
     return (
       <div className="bg-[#0b111e] min-h-screen font-body-md overflow-hidden">
