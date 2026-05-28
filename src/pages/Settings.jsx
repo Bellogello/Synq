@@ -6,6 +6,7 @@ const THEMES = [
   { id: 'slate-peach', name: 'Slate Peach', bg: '#1A2226', primary: '#FFCDC1', secondary: '#E07A5F' },
   { id: 'crimson-night', name: 'Crimson Night', bg: '#120812', primary: '#C30F45', secondary: '#F4A261' },
   { id: 'mint-marine', name: 'Mint Marine', bg: '#001A33', primary: '#DCF4A2', secondary: '#FFB703' },
+  { id: 'warm-mocha', name: 'Warm Mocha', bg: '#F5EBE0', primary: '#6C584C', secondary: '#A98467' },
 ];
 
 export default function Settings() {

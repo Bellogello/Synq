@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  /* Default Synq Dark Mode */
   :root, [data-theme="dark"] {
     --bg: #0b111e;
     --surface: #111827;
@@ -20,7 +19,6 @@
     --error: #ef4444;
   }
 
-  /* Theme 1: Midnight Rose (Light Pink BG, Navy Primary, Rosewood Secondary) */
   [data-theme="midnight-rose"] {
     --bg: #F8E9EB;
     --surface: #F2C4CD;
@@ -37,7 +35,6 @@
     --error: #dc2626;
   }
 
-  /* Theme 2: Slate Peach (Dark Slate BG, Peach Primary, Terracotta Secondary) */
   [data-theme="slate-peach"] {
     --bg: #1A2226;
     --surface: #242F35;
@@ -54,7 +51,6 @@
     --error: #ef4444;
   }
 
-  /* Theme 3: Crimson Night (Deep Plum BG, Crimson Primary, Gold Secondary) */
   [data-theme="crimson-night"] {
     --bg: #120812;
     --surface: #1C0D1C;
@@ -71,7 +67,6 @@
     --error: #ff4d4d;
   }
 
-  /* Theme 4: Mint Marine (Deep Marine BG, Mint Primary, Bright Yellow Secondary) */
   [data-theme="mint-marine"] {
     --bg: #001A33;
     --surface: #002B54;
@@ -86,5 +81,21 @@
     --secondary: #FFB703;
     --tertiary: #00A896;
     --error: #ef4444;
+  }
+
+  [data-theme="warm-mocha"] {
+    --bg: #F5EBE0;
+    --surface: #E3D5CA;
+    --surface-lowest: #FFF1E6;
+    --surface-low: #F0E4DB;
+    --surface-high: #D6C5B3;
+    --on-surface: #3E2C25;
+    --on-surface-variant: #6B584E;
+    --outline-variant: #C2B1A5;
+    --primary: #6C584C;
+    --on-primary: #FFFFFF;
+    --secondary: #A98467;
+    --tertiary: #B08968;
+    --error: #DC2626;
   }
 }
