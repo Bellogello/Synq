@@ -7,34 +7,33 @@ export default function BottomNav() {
   const navItems = [
     { path: '/', icon: 'dashboard', label: 'Queue' },
     { path: '/timer', icon: 'timer', label: 'Focus' },
-    // We flag the Archive to force a hard reload
     { path: '/archive', icon: 'auto_stories', label: 'Archive', forceRefresh: true },
     { path: '/settings', icon: 'settings', label: 'Settings' }
   ];
 
   return (
-    <nav className="fixed bottom-0 w-full max-w-md bg-surface/90 backdrop-blur-md border-t border-outline-variant/20 pb-safe z-50 transition-colors duration-300">
-      <div className="flex justify-around items-center h-20 px-2 pb-2">
+    // Universally floating dock for BOTH mobile and laptops!
+    <nav className="fixed bottom-6 inset-x-0 mx-auto w-[92%] max-w-[24rem] md:w-max md:max-w-none bg-surface/90 backdrop-blur-xl border border-outline-variant/20 rounded-[2rem] md:rounded-full z-50 transition-all duration-300 shadow-2xl">
+      <div className="flex justify-around items-center h-[4.5rem] px-2 md:px-6 md:gap-4">
         {navItems.map((item) => {
           const isActive = path === item.path;
           
-          // We extract the inner content so we don't have to write it twice
           const NavContent = () => (
             <>
               <div 
-                className={`flex items-center justify-center w-12 h-8 rounded-full transition-all duration-300 ${
+                className={`flex items-center justify-center w-[3rem] h-[2rem] md:w-[3.5rem] md:h-[2.5rem] rounded-full transition-all duration-300 ${
                   isActive ? 'bg-primary/20 text-primary' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
                 }`}
               >
                 <span 
-                  className="material-symbols-outlined text-[24px]" 
+                  className="material-symbols-outlined text-[1.5rem]" 
                   style={{ fontVariationSettings: `'FILL' ${isActive ? 1 : 0}` }}
                 >
                   {item.icon}
                 </span>
               </div>
               <span 
-                className={`text-[10px] font-bold tracking-wide transition-colors ${
+                className={`text-[0.625rem] md:text-[0.7rem] font-bold tracking-wide transition-colors ${
                   isActive ? 'text-primary' : 'text-on-surface-variant'
                 }`}
               >
@@ -43,26 +42,16 @@ export default function BottomNav() {
             </>
           );
 
-          // If the item has the forceRefresh flag, use a standard HTML anchor tag
           if (item.forceRefresh) {
             return (
-              <a 
-                key={item.path} 
-                href={item.path}
-                className="flex flex-col items-center justify-center w-16 h-full gap-1 active:scale-95 transition-transform"
-              >
+              <a key={item.path} href={item.path} className="flex flex-col items-center justify-center w-[4rem] md:w-[4.5rem] h-full gap-1 active:scale-95 transition-transform">
                 <NavContent />
               </a>
             );
           }
 
-          // Otherwise, use the standard React Router Link for instant navigation
           return (
-            <Link 
-              key={item.path} 
-              to={item.path}
-              className="flex flex-col items-center justify-center w-16 h-full gap-1 active:scale-95 transition-transform"
-            >
+            <Link key={item.path} to={item.path} className="flex flex-col items-center justify-center w-[4rem] md:w-[4.5rem] h-full gap-1 active:scale-95 transition-transform">
               <NavContent />
             </Link>
           );

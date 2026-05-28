@@ -26,17 +26,18 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. THEME HOOK (Moved up here!)
+  // 2. THEME HOOK
   useEffect(() => {
     const savedTheme = localStorage.getItem('synq-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
-  // 3. THE BOUNCER (Hooks are NOT allowed below this point!)
+  // 3. THE BOUNCER
   if (!session) {
     return (
-      <div className="bg-[#0b111e] min-h-screen font-body-md overflow-hidden">
-        <div className="max-w-md mx-auto min-h-screen relative bg-surface shadow-2xl border-x border-outline-variant/10 flex flex-col justify-center">
+      // Removed hardcoded hex, replaced with your theme variable
+      <div className="bg-surface min-h-screen font-body-md overflow-hidden">
+        <div className="max-w-screen-xl mx-auto px-4 pt-[5rem] pb-[8rem]">
           <Auth onLogin={setSession} />
         </div>
       </div>
@@ -46,12 +47,16 @@ export default function App() {
   // If logged in, show the full app!
   return (
     <BrowserRouter>
-      <div className="bg-[#0b111e] min-h-screen font-body-md overflow-x-hidden custom-scrollbar">
-        <div className="max-w-md mx-auto min-h-screen relative bg-surface shadow-2xl border-x border-outline-variant/10 pb-safe">
+      {/* 1. Replaced hardcoded hex with bg-surface so your themes span the whole monitor */}
+      <div className="bg-surface min-h-screen font-body-md overflow-x-hidden custom-scrollbar">
+        
+        {/* 🚨 THE FIX: Changed max-w-md to max-w-screen-xl! Removed the border-x so it looks like a fluid desktop app 🚨 */}
+        <div className="w-full max-w-screen-xl mx-auto min-h-screen relative pb-safe">
+          
           <Header />
           
-          <main className="pt-20 pb-28 px-4 space-y-6">
-            <Routes>
+          <main className="w-full px-4 pt-[5rem] pb-[8rem]">
+             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/timer" element={<Timer />} />
               <Route path="/archive" element={<Archive />} />
@@ -61,6 +66,7 @@ export default function App() {
           </main>
 
           <BottomNav />
+          
         </div>
       </div>
     </BrowserRouter>
