@@ -31,12 +31,21 @@ export default function SquadWorkspace() {
   const [editData, setEditData] = useState({ topic: '', scope: '', notes: '' });
   const [expandedItemId, setExpandedItemId] = useState(null); 
 
-useEffect(() => {
+  useEffect(() => {
     fetchWorkspaceData();
 
     const channel = supabase.channel(`room_${groupId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
+      // 🚨 UPDATED: Duplicate-proof Chat Listener
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        if (payload.new.group_id === groupId) {
+           setMessages(prev => {
+             // Prevent duplicates (in case the WebSocket bounces our own optimistic message back to us)
+             const alreadyExists = prev.some(m => m.id === payload.new.id || (m.content === payload.new.content && m.user_id === payload.new.user_id));
+             if (alreadyExists) return prev;
+             
+             return [...prev, payload.new];
+           });
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, (payload) => {
         console.log("🔥 REALTIME SIGNAL: study_items updated!", payload);
@@ -61,6 +70,7 @@ useEffect(() => {
 
     return () => supabase.removeChannel(channel);
   }, [groupId]);
+
   useEffect(() => {
     if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
   }, [messages]);
@@ -91,7 +101,7 @@ useEffect(() => {
     await fetchQueueDataSilent();
   };
 
-  // 🚨 NEW: Fetches only the task data so it can update in the background without breaking chat or typing
+  // Fetches only the task data so it can update in the background without breaking chat or typing
   const fetchQueueDataSilent = async () => {
     const { data: subData } = await supabase.from('subjects').select('*').eq('group_id', groupId);
     if (subData) setSubjects(subData);
@@ -114,7 +124,7 @@ useEffect(() => {
     }
   };
 
-  // 🚨 NEW: OWNER COMMANDS 🚨
+  // OWNER COMMANDS
   const removeMember = async (memberId) => {
     if (!window.confirm("Are you sure you want to kick this member?")) return;
     await supabase.from('group_members').delete().match({ group_id: groupId, user_id: memberId });
@@ -172,14 +182,30 @@ useEffect(() => {
   };
 
   const toggleMultiplayerComplete = async (itemId) => {
+    // 1. Check local state
     const hasCompleted = completions.some(c => c.item_id === itemId && c.user_id === userId);
+    
+    // 2. Optimistic UI Update (Updates your screen instantly)
+    if (hasCompleted) {
+      setCompletions(prev => prev.filter(c => !(c.item_id === itemId && c.user_id === userId)));
+    } else {
+      setCompletions(prev => [...prev, { item_id: itemId, user_id: userId }]);
+    }
+
+    // 3. Database Operation
     if (hasCompleted) {
       await supabase.from('task_completions').delete().match({ item_id: itemId, user_id: userId });
     } else {
-      await supabase.from('task_completions').insert([{ item_id: itemId, user_id: userId }]);
+      const { error } = await supabase.from('task_completions').insert([{ item_id: itemId, user_id: userId }]);
+      
+      // Ignore the '23505' (Unique Violation) error. If it's already there, we don't care!
+      if (error && error.code !== '23505') {
+        console.error("Database Error:", error.message);
+      }
     }
   };
 
+  // 🚨 UPDATED: Optimistic UI Chat
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -190,11 +216,28 @@ useEffect(() => {
     const myProfile = squadProfiles.find(p => p.id === userId);
     const displayName = myProfile?.full_name || userEmail.split('@')[0];
 
+    // Optimistic UI update - snaps onto screen instantly
+    const tempId = Math.random().toString();
+    const optimisticMessage = {
+      id: tempId,
+      group_id: groupId,
+      user_id: userId,
+      sender_email: displayName,
+      content: tempContent,
+      created_at: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+
     const { error } = await supabase.from('messages').insert([{
       group_id: groupId, user_id: userId, sender_email: displayName, content: tempContent
     }]);
 
-    if (error) { alert("Failed to send: " + error.message); setNewMessage(tempContent); }
+    if (error) { 
+      alert("Failed to send: " + error.message); 
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(tempContent); 
+    }
   };
 
   if (!group) return <div className="p-8 animate-pulse text-secondary font-bold text-[1.25rem]">Loading Workspace...</div>;
@@ -220,7 +263,6 @@ useEffect(() => {
                </div>
              </div>
              
-             {/* 🚨 NEW: The Invite Code Display 🚨 */}
              <div className="bg-surface-container-lowest px-4 py-2 rounded-xl border border-outline-variant/30 text-center flex-shrink-0">
                 <p className="text-[0.625rem] text-on-surface-variant font-bold uppercase tracking-widest mb-0.5">Invite Code</p>
                 <p className="font-display font-bold text-secondary text-[1.25rem] tracking-widest leading-none">{group.invite_code}</p>
@@ -228,7 +270,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* 🚨 NEW: SQUAD MEMBERS PANEL 🚨 */}
+        {/* SQUAD MEMBERS PANEL */}
         <div className="glass-card rounded-xl p-5 border-outline-variant/20 shadow-md">
            <h3 className="font-headline-md text-[1.125rem] text-on-surface mb-4 flex items-center gap-2">
              <span className="material-symbols-outlined text-secondary">groups</span>
@@ -336,7 +378,7 @@ useEffect(() => {
           </form>
         </div>
 
-        {/* 🚨 NEW: DELETE WORKSPACE BUTTON (OWNER ONLY) 🚨 */}
+        {/* DELETE WORKSPACE BUTTON (OWNER ONLY) */}
         {amIOwner && (
            <button onClick={deleteWorkspace} className="w-full bg-error/10 text-error font-bold py-3 rounded-xl border border-error/20 hover:bg-error hover:text-white transition-all active:scale-95 text-[0.875rem] shadow-sm">
              Delete Entire Workspace
