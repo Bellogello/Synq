@@ -7,6 +7,8 @@ import BottomNav from './components/BottomNav';
 import Dashboard from './pages/Dashboard';
 import Timer from './pages/Timer';
 import Archive from './pages/Archive';
+import Groups from './pages/Groups';
+import SquadWorkspace from './pages/SquadWorkspace';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 
@@ -60,6 +62,8 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/timer" element={<Timer />} />
               <Route path="/archive" element={<Archive />} />
+              <Route path="/groups" element={<Groups />} />
+              <Route path="/squad/:groupId" element={<SquadWorkspace />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
