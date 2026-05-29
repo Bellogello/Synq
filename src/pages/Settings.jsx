@@ -71,11 +71,12 @@ export default function Settings() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('synq_theme');
-    if (savedTheme) setCurrentTheme(savedTheme);
-    loadProfile();
-  }, []);
+useEffect(() => {
+  const savedTheme = localStorage.getItem('synq_theme') || 'dark';
+  setCurrentTheme(savedTheme);
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  loadProfile();
+}, []);
 
   const loadProfile = async () => {
     const user = (await supabase.auth.getUser()).data.user;

@@ -29,10 +29,10 @@ export default function App() {
   }, []);
 
   // 2. THEME HOOK
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('synq-theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
+useEffect(() => {
+  const theme = localStorage.getItem('synq_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+}, []);
 
   // 3. THE BOUNCER
   if (!session) {

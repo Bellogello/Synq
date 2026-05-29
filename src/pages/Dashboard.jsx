@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [notes, setNotes] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Edit Mode State (UPDATED: Added confidence)
+  // Edit Mode State
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({ topic: '', scope: '', notes: '', confidence: 3 });
 
@@ -29,12 +29,22 @@ export default function Dashboard() {
   }, []);
 
   const fetchData = async () => {
-    const { data: subData } = await supabase.from('subjects').select('*').order('name');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 🚨 FIX: Filter subjects to only show YOUR subjects
+    const { data: subData } = await supabase
+      .from('subjects')
+      .select('*')
+      .eq('user_id', user.id) 
+      .order('name');
     if (subData) setSubjects(subData);
 
+    // 🚨 FIX: Filter items to only show YOUR items
     const { data: itemData } = await supabase
       .from('study_items')
       .select('*, subjects(name)')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     if (itemData) setStudyItems(itemData);
   };
@@ -108,7 +118,7 @@ export default function Dashboard() {
     setStudyItems(items => items.map(item => item.id === id ? { ...item, ...editData } : item));
     setEditingId(null);
     
-    // Database Update (UPDATED: Saves confidence to the database)
+    // Database Update
     const { error } = await supabase
       .from('study_items')
       .update({ 
@@ -306,7 +316,6 @@ export default function Dashboard() {
                       </div>
                       <textarea value={editData.notes} onChange={(e) => setEditData({...editData, notes: e.target.value})} rows="2" className="w-full bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary resize-none"></textarea>
                       
-                      {/* UPDATED: Added interactive stars to the edit layout */}
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex gap-1 items-center bg-surface-container-lowest px-2 py-1 rounded-lg border border-outline-variant/20">
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -345,7 +354,6 @@ export default function Dashboard() {
                       </div>
                       
                       <div className="flex items-center gap-2 pt-1 flex-shrink-0">
-                        {/* UPDATED: Loads the item's current confidence into state when you click Edit */}
                         <button onClick={() => { 
                           setEditingId(item.id); 
                           setEditData({ topic: item.topic, scope: item.scope || '', notes: item.notes || '', confidence: item.confidence || 3 }); 
