@@ -31,40 +31,31 @@ export default function SquadWorkspace() {
   const [editData, setEditData] = useState({ topic: '', scope: '', notes: '' });
   const [expandedItemId, setExpandedItemId] = useState(null); 
 
-  useEffect(() => {
+useEffect(() => {
     fetchWorkspaceData();
 
-    const channel = supabase.channel(`room_${groupId}`)
-      // 🚨 UPDATED: Duplicate-proof Chat Listener
+    // 🚨 We changed the channel name and removed ALL complex Supabase filters
+    const channel = supabase.channel(`workspace_${groupId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        // Javascript filtering is 100x more reliable than Supabase filtering
         if (payload.new.group_id === groupId) {
            setMessages(prev => {
-             // Prevent duplicates (in case the WebSocket bounces our own optimistic message back to us)
              const alreadyExists = prev.some(m => m.id === payload.new.id || (m.content === payload.new.content && m.user_id === payload.new.user_id));
              if (alreadyExists) return prev;
-             
              return [...prev, payload.new];
            });
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, (payload) => {
-        console.log("🔥 REALTIME SIGNAL: study_items updated!", payload);
-        fetchQueueDataSilent();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, (payload) => {
-        console.log("🔥 REALTIME SIGNAL: task_completions updated!", payload);
-        fetchQueueDataSilent();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => fetchQueueDataSilent())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_item_notes' }, () => fetchQueueDataSilent())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects' }, () => fetchQueueDataSilent())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () => {
-         window.location.reload(); 
-      })
       .subscribe((status, err) => {
+        // This will tell us exactly what is happening
         if (status === 'SUBSCRIBED') {
-          console.log("✅ Connected to Supabase WebSockets!");
-        } else {
-          console.error("❌ WebSocket Error:", status, err);
+          console.log("✅ WebSockets CONNECTED for group:", groupId);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error("❌ WS Error:", status, err);
         }
       });
 
