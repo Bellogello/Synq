@@ -31,26 +31,36 @@ export default function SquadWorkspace() {
   const [editData, setEditData] = useState({ topic: '', scope: '', notes: '' });
   const [expandedItemId, setExpandedItemId] = useState(null); 
 
-  useEffect(() => {
+useEffect(() => {
     fetchWorkspaceData();
 
-    // 🚨 NEW: Massive Realtime upgrade. Listens to Chat AND the Shared Queue!
     const channel = supabase.channel(`room_${groupId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, (payload) => {
         setMessages(prev => [...prev, payload.new]);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, () => fetchQueueDataSilent())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, (payload) => {
+        console.log("🔥 REALTIME SIGNAL: study_items updated!", payload);
+        fetchQueueDataSilent();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, (payload) => {
+        console.log("🔥 REALTIME SIGNAL: task_completions updated!", payload);
+        fetchQueueDataSilent();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_item_notes' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects' }, () => fetchQueueDataSilent())
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () => {
-         // If someone gets kicked out, force a refresh of the members list
          window.location.reload(); 
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("✅ Connected to Supabase WebSockets!");
+        } else {
+          console.error("❌ WebSocket Error:", status, err);
+        }
+      });
 
     return () => supabase.removeChannel(channel);
   }, [groupId]);
-
   useEffect(() => {
     if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
   }, [messages]);
