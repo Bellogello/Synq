@@ -27,28 +27,23 @@ export default function Groups() {
     setLoading(false);
   };
 
-  const createGroup = async (e) => {
+const createGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
 
     const user_id = (await supabase.auth.getUser()).data.user.id;
-    // Generate a random 6-character alphanumeric code
     const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // 1. Create the Group
+    // 🚨 UPDATED: Added owner_id to the insert 🚨
     const { data: groupData, error: groupError } = await supabase
       .from('study_groups')
-      .insert([{ name: newGroupName.trim(), invite_code }])
+      .insert([{ name: newGroupName.trim(), invite_code, owner_id: user_id }])
       .select();
 
     if (groupError) return console.error(groupError);
 
-    // 2. Add the creator as a member
     if (groupData) {
-      await supabase
-        .from('group_members')
-        .insert([{ group_id: groupData[0].id, user_id }]);
-      
+      await supabase.from('group_members').insert([{ group_id: groupData[0].id, user_id }]);
       setGroups([...groups, groupData[0]]);
       setNewGroupName('');
     }

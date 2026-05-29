@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function SquadWorkspace() {
   const { groupId } = useParams();
+  const navigate = useNavigate(); // 🚨 NEW: Used to kick you out when a group is deleted
+  
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState('');
   const [group, setGroup] = useState(null);
@@ -12,15 +14,12 @@ export default function SquadWorkspace() {
   const [subjects, setSubjects] = useState([]);
   const [completions, setCompletions] = useState([]);
   const [squadProfiles, setSquadProfiles] = useState([]);
-  
   const [squadNotes, setSquadNotes] = useState([]); 
   
-  // Chat State
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const chatScrollRef = useRef(null);
   
-  // Form State
   const [topic, setTopic] = useState('');
   const [scope, setScope] = useState('');
   const [notes, setNotes] = useState('');
@@ -28,7 +27,6 @@ export default function SquadWorkspace() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
 
-  // Edit & Accordion State
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({ topic: '', scope: '', notes: '' });
   const [expandedItemId, setExpandedItemId] = useState(null); 
@@ -36,9 +34,17 @@ export default function SquadWorkspace() {
   useEffect(() => {
     fetchWorkspaceData();
 
+    // 🚨 NEW: Massive Realtime upgrade. Listens to Chat AND the Shared Queue!
     const channel = supabase.channel(`room_${groupId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, (payload) => {
         setMessages(prev => [...prev, payload.new]);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_items' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_item_notes' }, () => fetchQueueDataSilent())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () => {
+         // If someone gets kicked out, force a refresh of the members list
+         window.location.reload(); 
       })
       .subscribe();
 
@@ -49,31 +55,37 @@ export default function SquadWorkspace() {
     if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
   }, [messages]);
 
+  // Fetches EVERYTHING (Used on initial load)
   const fetchWorkspaceData = async () => {
     const user = (await supabase.auth.getUser()).data.user;
     setUserId(user.id);
     setUserEmail(user.email);
 
-    // Get Group
     const { data: gData } = await supabase.from('study_groups').select('*').eq('id', groupId).single();
     if (gData) setGroup(gData);
 
-    // Get Squad Profiles
     const { data: membersData } = await supabase.from('group_members').select('user_id').eq('group_id', groupId);
     if (membersData) {
       const memberIds = membersData.map(m => m.user_id);
+      
+      // Security Check: If you aren't in this list anymore (you got kicked), boot to home.
+      if (!memberIds.includes(user.id)) return navigate('/groups');
+
       const { data: pData } = await supabase.from('profiles').select('*').in('id', memberIds);
       if (pData) setSquadProfiles(pData);
     }
 
-    // Get Subjects & Messages
-    const { data: subData } = await supabase.from('subjects').select('*').eq('group_id', groupId);
-    if (subData) setSubjects(subData);
-
     const { data: msgData } = await supabase.from('messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true });
     if (msgData) setMessages(msgData);
 
-    // Get Shared Items & ALL Notes
+    await fetchQueueDataSilent();
+  };
+
+  // 🚨 NEW: Fetches only the task data so it can update in the background without breaking chat or typing
+  const fetchQueueDataSilent = async () => {
+    const { data: subData } = await supabase.from('subjects').select('*').eq('group_id', groupId);
+    if (subData) setSubjects(subData);
+
     if (subData && subData.length > 0) {
       const subjectIds = subData.map(s => s.id);
       const { data: itemData } = await supabase.from('study_items').select('*, subjects(name)').in('subject_id', subjectIds).order('created_at', { ascending: false });
@@ -81,15 +93,28 @@ export default function SquadWorkspace() {
 
       const itemIds = itemData ? itemData.map(i => i.id) : [];
       if (itemIds.length > 0) {
-        // Get Completions
         const { data: compData } = await supabase.from('task_completions').select('*').in('item_id', itemIds);
         if (compData) setCompletions(compData);
         
-        // GET EVERYONE'S NOTES FOR THESE ITEMS 
         const { data: notesData } = await supabase.from('user_item_notes').select('*').in('item_id', itemIds);
         if (notesData) setSquadNotes(notesData);
       }
+    } else {
+      setStudyItems([]);
     }
+  };
+
+  // 🚨 NEW: OWNER COMMANDS 🚨
+  const removeMember = async (memberId) => {
+    if (!window.confirm("Are you sure you want to kick this member?")) return;
+    await supabase.from('group_members').delete().match({ group_id: groupId, user_id: memberId });
+    setSquadProfiles(prev => prev.filter(p => p.id !== memberId));
+  };
+
+  const deleteWorkspace = async () => {
+    if (!window.confirm("WARNING: This will permanently delete this workspace and all its tasks for EVERYONE. Continue?")) return;
+    await supabase.from('study_groups').delete().eq('id', groupId);
+    navigate('/groups');
   };
 
   const handleCreateSubject = async () => {
@@ -114,33 +139,16 @@ export default function SquadWorkspace() {
     if (error) return alert("Database Error: " + error.message);
     
     if (data) {
-      const newSavedItem = data[0];
-      setStudyItems([newSavedItem, ...studyItems]);
-      
-      // Save your note to the squad notes
       if (notes.trim()) {
-        const myNote = { item_id: newSavedItem.id, user_id: userId, notes: notes.trim() };
-        setSquadNotes([...squadNotes, myNote]);
-        await supabase.from('user_item_notes').insert([myNote]);
+        await supabase.from('user_item_notes').insert([{ item_id: data[0].id, user_id: userId, notes: notes.trim() }]);
       }
-      
       setTopic(''); setScope(''); setNotes('');
     }
   };
 
   const saveEdit = async (id) => {
-    setStudyItems(items => items.map(item => item.id === id ? { ...item, topic: editData.topic, scope: editData.scope } : item));
-    
-    setSquadNotes(prev => {
-      const existing = prev.find(n => n.item_id === id && n.user_id === userId);
-      if (existing) return prev.map(n => n.item_id === id && n.user_id === userId ? { ...n, notes: editData.notes } : n);
-      return [...prev, { item_id: id, user_id: userId, notes: editData.notes }];
-    });
-    
     setEditingId(null);
-    
     await supabase.from('study_items').update({ topic: editData.topic, scope: editData.scope }).eq('id', id);
-
     if (editData.notes.trim()) {
       await supabase.from('user_item_notes').upsert({ item_id: id, user_id: userId, notes: editData.notes });
     } else {
@@ -150,19 +158,15 @@ export default function SquadWorkspace() {
 
   const deleteItem = async (id) => {
     if (!window.confirm("Delete this from the shared queue?")) return;
-    setStudyItems(items => items.filter(i => i.id !== id));
     await supabase.from('study_items').delete().eq('id', id);
   };
 
   const toggleMultiplayerComplete = async (itemId) => {
     const hasCompleted = completions.some(c => c.item_id === itemId && c.user_id === userId);
     if (hasCompleted) {
-      setCompletions(prev => prev.filter(c => !(c.item_id === itemId && c.user_id === userId)));
       await supabase.from('task_completions').delete().match({ item_id: itemId, user_id: userId });
     } else {
-      const newCompletion = { item_id: itemId, user_id: userId };
-      setCompletions([...completions, newCompletion]);
-      await supabase.from('task_completions').insert([newCompletion]);
+      await supabase.from('task_completions').insert([{ item_id: itemId, user_id: userId }]);
     }
   };
 
@@ -185,18 +189,73 @@ export default function SquadWorkspace() {
 
   if (!group) return <div className="p-8 animate-pulse text-secondary font-bold text-[1.25rem]">Loading Workspace...</div>;
 
+  const amIOwner = userId === group.owner_id;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-[6rem]">
       
-      {/* LEFT COLUMN: Controls & Chat */}
+      {/* LEFT COLUMN: Controls, Members & Chat */}
       <div className="lg:col-span-5 flex flex-col gap-6">
+        
+        {/* Workspace Header w/ Code */}
         <div className="glass-card rounded-xl p-6 border-secondary/30 border-2 shadow-lg shadow-secondary/5">
-          <Link to="/groups" className="text-[0.75rem] text-on-surface-variant font-bold hover:text-primary mb-2 inline-block transition-colors">&larr; Back to Squads</Link>
-          <h2 className="font-headline-md text-[1.5rem] text-on-surface leading-tight">{group.name}</h2>
-          <div className="mt-4 flex items-center gap-2 bg-surface-container-lowest px-3 py-2 rounded-lg w-max border border-outline-variant/20">
-             <span className="material-symbols-outlined text-[1rem] text-secondary">group</span>
-             <span className="text-[0.75rem] font-bold text-on-surface-variant tracking-widest uppercase">Multiplayer Queue</span>
+          <Link to="/groups" className="text-[0.75rem] text-on-surface-variant font-bold hover:text-primary mb-3 inline-block transition-colors">&larr; Back to Squads</Link>
+          
+          <div className="flex items-start justify-between gap-4">
+             <div>
+               <h2 className="font-headline-md text-[1.5rem] text-on-surface leading-tight">{group.name}</h2>
+               <div className="mt-2 flex items-center gap-1 text-[0.75rem] font-bold text-on-surface-variant tracking-widest uppercase">
+                  <span className="material-symbols-outlined text-[1rem] text-secondary">group</span>
+                  Multiplayer Queue
+               </div>
+             </div>
+             
+             {/* 🚨 NEW: The Invite Code Display 🚨 */}
+             <div className="bg-surface-container-lowest px-4 py-2 rounded-xl border border-outline-variant/30 text-center flex-shrink-0">
+                <p className="text-[0.625rem] text-on-surface-variant font-bold uppercase tracking-widest mb-0.5">Invite Code</p>
+                <p className="font-display font-bold text-secondary text-[1.25rem] tracking-widest leading-none">{group.invite_code}</p>
+             </div>
           </div>
+        </div>
+
+        {/* 🚨 NEW: SQUAD MEMBERS PANEL 🚨 */}
+        <div className="glass-card rounded-xl p-5 border-outline-variant/20 shadow-md">
+           <h3 className="font-headline-md text-[1.125rem] text-on-surface mb-4 flex items-center gap-2">
+             <span className="material-symbols-outlined text-secondary">groups</span>
+             Squad Members
+           </h3>
+           <div className="space-y-3">
+             {squadProfiles.map(profile => {
+                const isMe = profile.id === userId;
+                const isOwner = profile.id === group.owner_id;
+
+                return (
+                  <div key={profile.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-lowest transition-colors">
+                     <div className="flex items-center gap-3">
+                       <img 
+                         src={profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.avatar_seed}&backgroundColor=transparent`} 
+                         className="w-10 h-10 rounded-full border border-outline-variant/20 bg-surface-container object-cover" 
+                         alt={profile.full_name}
+                       />
+                       <div>
+                         <p className="text-[0.875rem] font-bold text-on-surface flex items-center gap-2">
+                           {profile.full_name} 
+                           {isMe && <span className="text-[0.625rem] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full uppercase tracking-wider">You</span>}
+                         </p>
+                         {isOwner && <p className="text-[0.75rem] text-primary font-bold">Workspace Owner</p>}
+                       </div>
+                     </div>
+                     
+                     {/* Kick Button (Only visible if YOU are the owner, and you aren't trying to kick yourself) */}
+                     {amIOwner && !isMe && (
+                       <button onClick={() => removeMember(profile.id)} className="text-on-surface-variant/40 hover:text-error hover:bg-error/10 p-2 rounded-lg transition-all active:scale-95" title="Kick from workspace">
+                          <span className="material-symbols-outlined text-[1.25rem]">person_remove</span>
+                       </button>
+                     )}
+                  </div>
+                )
+             })}
+           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="glass-card rounded-xl p-5 space-y-4 shadow-md border-outline-variant/20">
@@ -266,6 +325,13 @@ export default function SquadWorkspace() {
             </button>
           </form>
         </div>
+
+        {/* 🚨 NEW: DELETE WORKSPACE BUTTON (OWNER ONLY) 🚨 */}
+        {amIOwner && (
+           <button onClick={deleteWorkspace} className="w-full bg-error/10 text-error font-bold py-3 rounded-xl border border-error/20 hover:bg-error hover:text-white transition-all active:scale-95 text-[0.875rem] shadow-sm">
+             Delete Entire Workspace
+           </button>
+        )}
       </div>
 
       {/* RIGHT COLUMN: The Shared Queue */}
