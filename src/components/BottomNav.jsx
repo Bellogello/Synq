@@ -7,7 +7,7 @@ export default function BottomNav() {
   const navItems = [
     { path: '/', icon: 'dashboard', label: 'Queue' },
     { path: '/timer', icon: 'timer', label: 'Focus' },
-    { path: '/archive', icon: 'auto_stories', label: 'Archive', forceRefresh: true },
+    { path: '/archive', icon: 'auto_stories', label: 'Archive'},
     { path: '/groups', icon: 'groups', label: 'Squad' },
     { path: '/settings', icon: 'settings', label: 'Settings' }
   ];

@@ -209,7 +209,7 @@ useEffect(() => {
           <div className="flex-1 space-y-4 w-full">
             <div className="space-y-1">
               <label className="font-label-md text-on-surface-variant px-1 text-[0.875rem]">Display Name</label>
-              <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Belal Mahmoud" className="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface rounded-lg px-4 py-3 text-[1rem] focus:ring-1 focus:ring-primary outline-none" />
+              <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Display Name" className="w-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface rounded-lg px-4 py-3 text-[1rem] focus:ring-1 focus:ring-primary outline-none" />
             </div>
             <button type="submit" disabled={isSaving || uploading} className="w-full md:w-auto bg-primary text-on-primary font-bold px-8 py-3 rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all text-[0.875rem] md:float-right disabled:opacity-50">
               {isSaving ? 'Saving...' : 'Save Profile'}

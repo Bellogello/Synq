@@ -10,6 +10,10 @@ export default function Dashboard() {
   const [formVisible, setFormVisible] = useState(true);
   const [currentRating, setCurrentRating] = useState(3);
   const [pulsingId, setPulsingId] = useState(null);
+  
+  const [expandedNotes, setExpandedNotes] = useState([]); 
+  // 🚨 FIX: Changed to expandedFolders so they start collapsed by default
+  const [expandedFolders, setExpandedFolders] = useState([]);
 
   // Creation State
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
@@ -32,7 +36,6 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 🚨 FIX: Filter subjects to only show YOUR subjects
     const { data: subData } = await supabase
       .from('subjects')
       .select('*')
@@ -40,7 +43,6 @@ export default function Dashboard() {
       .order('name');
     if (subData) setSubjects(subData);
 
-    // 🚨 FIX: Filter items to only show YOUR items
     const { data: itemData } = await supabase
       .from('study_items')
       .select('*, subjects(name)')
@@ -105,6 +107,13 @@ export default function Dashboard() {
 
     if (!error && data) {
       setStudyItems([data[0], ...studyItems]);
+      
+      // Auto-expand the folder you just added a topic to!
+      const addedSubjectName = data[0].subjects?.name || 'Uncategorized';
+      if (!expandedFolders.includes(addedSubjectName)) {
+         setExpandedFolders(prev => [...prev, addedSubjectName]);
+      }
+
       setTopic('');
       setScope('');
       setNotes('');
@@ -114,11 +123,9 @@ export default function Dashboard() {
   };
 
   const saveEdit = async (id) => {
-    // Optimistic UI Update
     setStudyItems(items => items.map(item => item.id === id ? { ...item, ...editData } : item));
     setEditingId(null);
     
-    // Database Update
     const { error } = await supabase
       .from('study_items')
       .update({ 
@@ -148,6 +155,19 @@ export default function Dashboard() {
     await supabase.from('study_items').delete().eq('id', id);
   };
 
+  const toggleNote = (id) => {
+    setExpandedNotes(prev => prev.includes(id) ? prev.filter(noteId => noteId !== id) : [...prev, id]);
+  };
+
+  // 🚨 FIX: Toggles the expanded state instead of collapsed
+  const toggleFolder = (subjectName) => {
+    setExpandedFolders(prev => 
+      prev.includes(subjectName) 
+        ? prev.filter(name => name !== subjectName) 
+        : [...prev, subjectName]
+    );
+  };
+
   const total = studyItems.length;
   const doneCount = studyItems.filter(i => i.completed).length;
   const completionPct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
@@ -170,6 +190,13 @@ export default function Dashboard() {
 
     return matchesChip && matchesSearch;
   });
+
+  const groupedItems = filteredItems.reduce((acc, item) => {
+    const subjectName = item.subjects?.name || 'Uncategorized';
+    if (!acc[subjectName]) acc[subjectName] = [];
+    acc[subjectName].push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-[6rem]">
@@ -294,8 +321,8 @@ export default function Dashboard() {
           ))}
         </section>
 
-        <section className="space-y-4 min-h-[12.5rem]">
-          {filteredItems.length === 0 ? (
+        <section className="min-h-[12.5rem]">
+          {Object.keys(groupedItems).length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-12 space-y-4 animate-pulse">
               <span className="material-symbols-outlined text-[4rem] text-surface-variant/40">search_off</span>
               <div>
@@ -304,70 +331,124 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            filteredItems.map(item => {
-              const isEditing = editingId === item.id;
-              return (
-                <div key={item.id} className={`study-item-enter glass-card rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${item.completed && !isEditing ? 'opacity-50 grayscale-[0.3]' : ''} ${pulsingId === item.id ? 'complete-pulse' : ''}`}>
-                  {isEditing ? (
-                    <div className="space-y-3 w-full">
-                      <div className="flex gap-2">
-                        <input type="text" value={editData.topic} onChange={(e) => setEditData({...editData, topic: e.target.value})} className="flex-1 bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary" />
-                        <input type="text" value={editData.scope} onChange={(e) => setEditData({...editData, scope: e.target.value})} className="w-[6rem] bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary" />
-                      </div>
-                      <textarea value={editData.notes} onChange={(e) => setEditData({...editData, notes: e.target.value})} rows="2" className="w-full bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary resize-none"></textarea>
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex gap-1 items-center bg-surface-container-lowest px-2 py-1 rounded-lg border border-outline-variant/20">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span 
-                              key={star} 
-                              onClick={() => setEditData({...editData, confidence: star})}
-                              className={`material-symbols-outlined text-[1rem] cursor-pointer transition-transform active:scale-125 ${star <= editData.confidence ? 'text-secondary' : 'text-on-surface-variant/30'}`} 
-                              style={{ fontVariationSettings: `'FILL' ${star <= editData.confidence ? 1 : 0}` }}
-                            >star</span>
-                          ))}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => setEditingId(null)} className="text-[0.75rem] font-bold text-on-surface-variant px-4 py-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-high transition-all">Cancel</button>
-                          <button onClick={() => saveEdit(item.id)} className="text-[0.75rem] font-bold text-on-primary bg-primary px-4 py-2 rounded-lg active:scale-95 transition-all">Save</button>
-                        </div>
-                      </div>
+            // Render Grouped Subjects
+            Object.entries(groupedItems).map(([subject, items]) => {
+              // 🚨 FIX: Now checking if it is EXPANDED
+              const isExpanded = expandedFolders.includes(subject);
 
+              return (
+                <div key={subject} className="mb-6">
+                  <button 
+                    onClick={() => toggleFolder(subject)}
+                    className="w-full flex items-center justify-between text-left px-2 pb-2 mb-2 border-b border-outline-variant/20 hover:bg-surface-container-highest/50 transition-colors rounded-t-lg group"
+                  >
+                    <div className="flex items-center gap-2 text-on-surface-variant group-hover:text-primary transition-colors">
+                      <span className="material-symbols-outlined text-[1.25rem] text-primary">
+                        {isExpanded ? 'folder_open' : 'folder'}
+                      </span>
+                      <h3 className="font-headline-sm">{subject}</h3>
+                      <span className="text-[0.75rem] text-on-surface-variant/50 ml-1 font-bold bg-surface-container-highest px-2 py-0.5 rounded-full">
+                        {items.length} {items.length === 1 ? 'topic' : 'topics'}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="flex items-start gap-4">
-                      <div className="flex-grow min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[0.625rem] px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold uppercase tracking-wider truncate max-w-[7.5rem]">{item.subjects?.name || 'Unknown'}</span>
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <span key={star} className={`material-symbols-outlined text-[0.75rem] ${star <= item.confidence ? 'text-secondary' : 'text-on-surface-variant/20'}`} style={{ fontVariationSettings: `'FILL' ${star <= item.confidence ? 1 : 0}` }}>star</span>
-                            ))}
+                    {/* 🚨 FIX: Arrow now points right when closed, down when open */}
+                    <span className="material-symbols-outlined text-on-surface-variant/50 transition-transform duration-300" style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                      expand_more
+                    </span>
+                  </button>
+                  
+                  {/* 🚨 FIX: Accordion logic flipped to match expanded state */}
+                  <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                    <div className="overflow-hidden space-y-3 px-1">
+                      {items.map(item => {
+                        const isEditing = editingId === item.id;
+                        const isNoteExpanded = expandedNotes.includes(item.id);
+                        
+                        return (
+                          <div key={item.id} className={`study-item-enter rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${item.completed && !isEditing ? 'bg-surface-container border border-outline-variant/10 grayscale-[0.2]' : 'glass-card border border-outline-variant/20'} ${pulsingId === item.id ? 'complete-pulse' : ''}`}>
+                            {isEditing ? (
+                              <div className="space-y-3 w-full">
+                                <div className="flex gap-2">
+                                  <input type="text" value={editData.topic} onChange={(e) => setEditData({...editData, topic: e.target.value})} className="flex-1 bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary" />
+                                  <input type="text" value={editData.scope} onChange={(e) => setEditData({...editData, scope: e.target.value})} className="w-[6rem] bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary" />
+                                </div>
+                                <textarea value={editData.notes} onChange={(e) => setEditData({...editData, notes: e.target.value})} rows="2" className="w-full bg-surface-container-lowest border border-primary/50 text-on-surface rounded-lg px-3 py-2 text-[0.875rem] focus:ring-1 focus:ring-primary resize-none"></textarea>
+                                
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="flex gap-1 items-center bg-surface-container-lowest px-2 py-1 rounded-lg border border-outline-variant/20">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <span 
+                                        key={star} 
+                                        onClick={() => setEditData({...editData, confidence: star})}
+                                        className={`material-symbols-outlined text-[1rem] cursor-pointer transition-transform active:scale-125 ${star <= editData.confidence ? 'text-secondary' : 'text-on-surface-variant/30'}`} 
+                                        style={{ fontVariationSettings: `'FILL' ${star <= editData.confidence ? 1 : 0}` }}
+                                      >star</span>
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-end gap-2">
+                                    <button onClick={() => setEditingId(null)} className="text-[0.75rem] font-bold text-on-surface-variant px-4 py-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-high transition-all">Cancel</button>
+                                    <button onClick={() => saveEdit(item.id)} className="text-[0.75rem] font-bold text-on-primary bg-primary px-4 py-2 rounded-lg active:scale-95 transition-all">Save</button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-4">
+                                <div className="flex-grow min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[0.625rem] px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold uppercase tracking-wider truncate max-w-[7.5rem]">{item.subjects?.name || 'Unknown'}</span>
+                                    <div className="flex">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <span key={star} className={`material-symbols-outlined text-[0.75rem] ${star <= item.confidence ? 'text-secondary' : 'text-on-surface-variant/20'}`} style={{ fontVariationSettings: `'FILL' ${star <= item.confidence ? 1 : 0}` }}>star</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  
+                                  <h4 className={`font-bold truncate text-[1rem] ${item.completed ? 'line-through text-on-surface-variant decoration-on-surface-variant/60' : 'text-on-surface'}`}>
+                                    {item.topic} <span className="opacity-70 text-[0.75rem] font-normal ml-1">({item.scope})</span>
+                                  </h4>
+                                  
+                                  {item.notes && (
+                                    <div className="mt-3">
+                                      <button 
+                                        onClick={() => toggleNote(item.id)}
+                                        className={`flex items-center gap-1 text-[0.625rem] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors ${isNoteExpanded ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+                                      >
+                                        <span className="material-symbols-outlined text-[1rem]">description</span>
+                                        {isNoteExpanded ? 'Hide Notes' : 'Show Notes'}
+                                        <span className="material-symbols-outlined text-[1rem] transition-transform" style={{ transform: isNoteExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
+                                      </button>
+                                      
+                                      <div className={`grid transition-all duration-300 ease-in-out ${isNoteExpanded ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                                        <div className="overflow-hidden">
+                                          <div className="text-[0.875rem] text-on-surface bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/10 whitespace-pre-wrap">
+                                            {item.notes}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="flex items-center gap-2 pt-1 flex-shrink-0">
+                                  <button onClick={() => { 
+                                    setEditingId(item.id); 
+                                    setEditData({ topic: item.topic, scope: item.scope || '', notes: item.notes || '', confidence: item.confidence || 3 }); 
+                                  }} className="material-symbols-outlined text-[1.25rem] text-on-surface-variant/40 hover:text-primary transition-all flex-shrink-0">edit</button>
+                                  <button onClick={() => deleteItem(item.id)} className="material-symbols-outlined text-[1.25rem] text-on-surface-variant/40 hover:text-error transition-all flex-shrink-0">delete</button>
+                                  <label className="relative flex items-center cursor-pointer group flex-shrink-0 ml-1">
+                                    <input type="checkbox" checked={item.completed} onChange={() => toggleComplete(item.id, item.completed)} className="peer sr-only" />
+                                    <div className="w-[1.5rem] h-[1.5rem] rounded border-2 border-outline-variant/30 peer-checked:border-primary peer-checked:bg-primary transition-all flex items-center justify-center">
+                                      <span className="material-symbols-outlined text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all font-bold text-[0.875rem]">check</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <h4 className={`font-bold text-on-surface truncate text-[1rem] ${item.completed ? 'line-through decoration-primary/50' : ''}`}>
-                          {item.topic} <span className="text-on-surface-variant/70 text-[0.75rem] font-normal ml-1">({item.scope})</span>
-                        </h4>
-                        {item.notes && (
-                          <div className="mt-2 text-[0.75rem] text-on-surface-variant/80 bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 whitespace-pre-wrap">{item.notes}</div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2 pt-1 flex-shrink-0">
-                        <button onClick={() => { 
-                          setEditingId(item.id); 
-                          setEditData({ topic: item.topic, scope: item.scope || '', notes: item.notes || '', confidence: item.confidence || 3 }); 
-                        }} className="material-symbols-outlined text-[1.25rem] text-on-surface-variant/40 hover:text-primary transition-all flex-shrink-0">edit</button>
-                        <button onClick={() => deleteItem(item.id)} className="material-symbols-outlined text-[1.25rem] text-on-surface-variant/40 hover:text-error transition-all flex-shrink-0">delete</button>
-                        <label className="relative flex items-center cursor-pointer group flex-shrink-0 ml-1">
-                          <input type="checkbox" checked={item.completed} onChange={() => toggleComplete(item.id, item.completed)} className="peer sr-only" />
-                          <div className="w-[1.5rem] h-[1.5rem] rounded border-2 border-outline-variant/30 peer-checked:border-primary peer-checked:bg-primary transition-all flex items-center justify-center">
-                            <span className="material-symbols-outlined text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all font-bold text-[0.875rem]">check</span>
-                          </div>
-                        </label>
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })
